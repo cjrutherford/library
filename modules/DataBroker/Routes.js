@@ -1,19 +1,38 @@
-const router = require('express').Router();
+const router = require("express").Router();
 
-module.exports = () => {
+module.exports = (server) => {
+  router.get("/", async (req, res) => {
+    server
+      .getIdList()
+      .then((l) => {
+        res.json(l);
+      })
+      .catch((err) => {
+        res.status(500).json(err);
+      });
+  });
 
-    router.get('/', async (req,res) => {
-        res.json(await getList());
-    });
+  router.post("/", async (req, res) => {
+    server
+      .validate(req.body)
+      .then((result) => {
+        server
+          .insert(result)
+          .then((saved) => {
+            res.json(saved);
+          })
+          .catch((err) => res.status(500).json(err));
+      })
+      .catch((err) => res.status(500).json(err));
+  });
 
-    router.post('/', async (req,res) => {
-        const data = setModel(req.body);
-        res.json(data);
-    });
-
-    router.delete('/:modelId', (req,res) => {
-        deleteModel(req.params.modelId);
-        res.json('Succcess');
-    });
-    return router;
+  router.delete("/:modelId", (req, res) => {
+    server
+      .destroy(req.params.modelId)
+      .then(() => {
+        res.json({ success: "true", id: req.params.modelId });
+      })
+      .catch((err) => res.status(500).json(err));
+  });
+  return router;
 };

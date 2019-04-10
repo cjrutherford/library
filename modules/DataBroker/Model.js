@@ -2,41 +2,46 @@ const Keyv = require("keyv");
 const uuid = require("uuid");
 
 class Model {
-  modelCache;
-  constructor({ name, storeURI }) {
-    modelCache = new Keyv(storeURI, {
+  constructor({ name, storeURI, schema }) {
+    this.modelCache = new Keyv(storeURI, {
       namespace: name,
     });
-    modelCache.on("error", (err) => console.error(err));
+    this.modelSchema = schema;
+    this.modelCache.on("error", (err) => console.error(err));
   }
 
-  initIdList = async () => {
-    await modelCache.set("idList", []);
+  async initIdList() {
+    await this.modelCache.set("idList", []);
   };
 
-  getIdList = async () => {
-    const list = await modelCache.get("idList");
+  async validate (model) {
+    const res = await this.modelSchema.validate(model);
+    return res;
+  };
+
+  async getIdList() {
+    const list = await this.modelCache.get("idList");
     if (list === undefined) {
       initIdList();
-      return await modelCache.get("idList");
+      return await this.modelCache.get("idList");
     } else {
       return list;
     }
   };
 
-  addToIdList = async (id) => {
+  async addToIdList (id) {
     const list = await getIdList();
     if (list.indexOf(id) >= 0) {
-      await modelCache.set("idList", [...list, id]);
+      await this.modelCache.set("idList", [...list, id]);
     }
     return;
   };
 
-  getById = async (id) => {
-    return await modelCache.get(id);
+  async getById(id) {
+    return await this.modelCache.get(id);
   };
 
-  where = async (fnfilter) => {
+  async where = async (fnfilter) => {
     const idList = await getIdList();
     const ServerList = idList
       .forEach(async (id) => {
@@ -48,15 +53,15 @@ class Model {
 
   insert = async (s) => {
     s.id = s.id === undefined ? uuid.v4() : s.id;
-    await modelCache.set(s.id, s);
+    await this.modelCache.set(s.id, s);
     await addToIdList(s.id);
     return s;
   };
 
   destroy = async (id) => {
     const list = await getIdList();
-    await modelCache.set("idList", list.filter((x) => x !== id));
-    await modelCache.delete(id);
+    await this.modelCache.set("idList", list.filter((x) => x !== id));
+    await this.modelCache.delete(id);
   };
 }
 
