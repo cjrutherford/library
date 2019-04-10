@@ -1,5 +1,5 @@
-const Keyv = require("keyv");
-const uuid = require("uuid");
+const Keyv = require('keyv');
+const uuid = require('uuid');
 
 class Model {
   constructor({ name, storeURI, schema }) {
@@ -7,62 +7,100 @@ class Model {
       namespace: name,
     });
     this.modelSchema = schema;
-    this.modelCache.on("error", (err) => console.error(err));
+    this.modelCache.on('error', err => console.error(err));
   }
 
   async initIdList() {
-    await this.modelCache.set("idList", []);
-  };
+    try {
+      await this.modelCache.set('idList', []);
+    } catch (e) {
+      throw new Error(e);
+    }
+  }
 
-  async validate (model) {
-    const res = await this.modelSchema.validate(model);
-    return res;
-  };
+  async validate(model) {
+    try {
+      const res = await this.modelSchema.validate(model);
+      return res;
+    } catch (e) {
+      throw new Error(e[0]);
+    }
+  }
 
   async getIdList() {
-    const list = await this.modelCache.get("idList");
-    if (list === undefined) {
-      initIdList();
-      return await this.modelCache.get("idList");
-    } else {
-      return list;
+    try {
+      const list = await this.modelCache.get('idList');
+      if (list === undefined) {
+        this.initIdList();
+        return await this.modelCache.get('idList');
+      } else {
+        return list;
+      }
+    } catch (e) {
+      throw new Error(e);
     }
-  };
+  }
 
-  async addToIdList (id) {
-    const list = await getIdList();
-    if (list.indexOf(id) >= 0) {
-      await this.modelCache.set("idList", [...list, id]);
+  async addToIdList(id) {
+    try {
+      const list = await this.getIdList();
+      if (list.indexOf(id) === -1) {
+        await this.modelCache.set('idList', [...list, id]);
+      }
+      return;
+    } catch (e) {
+      throw new Error(e);
     }
-    return;
-  };
+  }
 
   async getById(id) {
-    return await this.modelCache.get(id);
-  };
+    try {
+      return await this.modelCache.get(id);
+    } catch (e) {
+      throw new Error(e);
+    }
+  }
 
-  async where = async (fnfilter) => {
-    const idList = await getIdList();
-    const ServerList = idList
-      .forEach(async (id) => {
-        return await getById(id);
-      })
-      .filter(fnFilter);
-    return ServerList;
-  };
+  async where(fnfilter) {
+    try {
+      const idList = await this.getIdList();
+      const ServerList = idList
+        .forEach(async id => {
+          try {
+            return await getById(id);
+          } catch (e) {
+            throw new Error(e);
+          }
+        })
+        .filter(fnFilter);
+      return ServerList;
+    } catch (e) {
+      throw new Error(e);
+    }
+  }
 
-  insert = async (s) => {
-    s.id = s.id === undefined ? uuid.v4() : s.id;
-    await this.modelCache.set(s.id, s);
-    await addToIdList(s.id);
-    return s;
-  };
+  async insert(s) {
+    try {
+      s.id = s.id === undefined ? uuid.v4() : s.id;
+      const result = await this.validate(s);
+      console.log(result);
+      await this.modelCache.set(result.id, result);
+      await this.addToIdList(result.id);
+      return result;
+    } catch (e) {
+      throw new Error(e);
+    }
+  }
 
-  destroy = async (id) => {
-    const list = await getIdList();
-    await this.modelCache.set("idList", list.filter((x) => x !== id));
-    await this.modelCache.delete(id);
-  };
+  async destroy(id) {
+    try {
+      const list = await this.getIdList();
+      await this.modelCache.set('idList', list.filter(x => x !== id));
+      await this.modelCache.delete(id);
+    } catch (e) {
+      throw new Error(e);
+    }
+  }
 }
 
 module.exports = Model;
